@@ -27,6 +27,7 @@ public class Task2 {
     }
 }
 
+// Класс `MyRunnable` реализует интерфейс `Runnable` и переопределяет его метод `run()`. Внутри метода происходит фактическая обработка запроса. 
 class MyRunnable implements Runnable {
     Integer number;
     public MyRunnable(int number) {
