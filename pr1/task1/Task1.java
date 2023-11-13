@@ -1,142 +1,150 @@
+// Вариант 2 - поиск минимума
+
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.*;
+
 
 public class Task1 {
-    public static void main(String[] args) throws Exception {
-        int arrayLength = 10000;
-        int threadCount = 10;
-        int[] array = new int[arrayLength];
-        int sum = 0;
-        int sumThread = 0;
-        int sumFork;
-        Random rd = new Random();
-        CountDownLatch countDownLatch = new CountDownLatch(threadCount);
-        SumThread[] threads = new SumThread[threadCount];
+    private static final int ARRAY_SIZE = 10000;
+    private static final int MAX_ELEMENT_VALUE = 1000;
 
-        for (int i = 0; i < array.length; i++) {
-            array[i] = rd.nextInt(10);
-        }
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
+        int[] array = generateArray();
 
-        // Последовательный расчёт
-        long timeSequence = System.currentTimeMillis();
-        long memorySeq = Runtime.getRuntime().freeMemory();
-        for (int value : array) {
-            sum += value;
-            Thread.sleep(1);
-        }
-        timeSequence = System.currentTimeMillis() - timeSequence;
-        memorySeq = memorySeq - Runtime.getRuntime().freeMemory();
+        // Последовательный поиск
+        long startTime = System.currentTimeMillis();
+        int minSequential = findMinimumSequential(array);
+        long endTime = System.currentTimeMillis();
+        long sequentialTime = endTime - startTime;
+        System.out.println("Минимальный элемент (последовательный): " + minSequential);
+        System.out.println("Время выполнения (последовательный): " + sequentialTime + " мс");
+        System.out.println("Использование памяти (последовательный): " + getMemoryUsage() + " байт");
+        System.out.println();
 
+        // Поиск с использованием многопоточности (с классом Future)
+        startTime = System.currentTimeMillis();
+        int minMultiThreaded = findMinimumMultiThreaded(array);
+        endTime = System.currentTimeMillis();
+        long multiThreadedTime = endTime - startTime;
+        System.out.println("Минимальный элемент (многопоточность - Future): " + minMultiThreaded);
+        System.out.println("Время выполнения (многопоточность - Future): " + multiThreadedTime + " мс");
+        System.out.println("Использование памяти (многопоточность - Future): " + getMemoryUsage() + " байт");
+        System.out.println();
 
-        // Многопоточный расчёт
-        long timeThread = System.currentTimeMillis();
-        long memoryThr = Runtime.getRuntime().totalMemory();
-
-        for (int i = 0; i < threadCount; i++){
-            threads[i] = new SumThread(countDownLatch, Arrays
-                    .copyOfRange(
-                            array,
-                            i * arrayLength / threadCount,
-                            (i + 1) * arrayLength / threadCount
-                    )
-            );
-        }
-
-        for (int i = 0; i < threadCount; i++){
-            threads[i].start();
-        }
-
-        try {
-            countDownLatch.await();
-        } catch (InterruptedException e) {
-            System.out.println(e.getMessage());
-        }
-
-        for (int i = 0; i < threadCount; i++){
-            sumThread += threads[i].getSum();
-        }
-
-        timeThread = System.currentTimeMillis() - timeThread;
-        memoryThr = memoryThr - Runtime.getRuntime().freeMemory();
-
-        ForkJoinPool fjp = new ForkJoinPool();
-        ArraySum task = new ArraySum(array, 0, array.length);
-
-        // Использование Fork
-        long timeFork = System.currentTimeMillis();
-        long memoryFork = Runtime.getRuntime().freeMemory();
-        sumFork = fjp.invoke(task);
-        timeFork = System.currentTimeMillis() - timeFork;
-        memoryFork = memoryFork - Runtime.getRuntime().freeMemory();
-
-        System.out.println("Sum: " + sum + ". Time: " + timeSequence + ". Memory: " + memorySeq + " [Sequence]");
-        System.out.println("Sum: " + sumThread + ". Time: " + timeThread+ ". Memory: " + memoryThr  + " [Thread]");
-        System.out.println("Sum: " + sumFork + ". Time: " + timeFork + ". Memory: " + memoryFork + " [Fork]");
-    }
-}
-
-class SumThread extends Thread{
-    private final int[] array;
-    private int sum = 0;
-    private final CountDownLatch countDownLatch;
-
-    SumThread(CountDownLatch countDownLatch, int[] array){
-        super();
-        this.array = array;
-        this.countDownLatch = countDownLatch;
+        // Поиск с использованием ForkJoin
+        startTime = System.currentTimeMillis();
+        int minForkJoin = findMinimumForkJoin(array);
+        endTime = System.currentTimeMillis();
+        long forkJoinTime = endTime - startTime;
+        System.out.println("Минимальный элемент (ForkJoin): " + minForkJoin);
+        System.out.println("Время выполнения (ForkJoin): " + forkJoinTime + " мс");
+        System.out.println("Использование памяти (ForkJoin): " + getMemoryUsage() + " байт");
     }
 
-    @Override
-    public void run(){
-        for (int value : this.array) {
-            this.sum += value;
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+    // Создание массива
+    private static int[] generateArray() {
+        Random random = new Random();
+        int[] array = new int[ARRAY_SIZE];
+
+        for (int i = 0; i < ARRAY_SIZE; i++) {
+            array[i] = random.nextInt(MAX_ELEMENT_VALUE);
+        }
+
+        return array;
+    }
+
+    // Последовательный поиск
+    private static int findMinimumSequential(int[] array) {
+        int min = array[0];
+
+        for (int i = 1; i < ARRAY_SIZE; i++) {
+            sleepOneMillisecond();
+            if (array[i] < min) {
+                min = array[i];
             }
         }
-        countDownLatch.countDown();
+
+        return min;
     }
 
-    public int getSum(){
-        return this.sum;
+    // Поиск с использованием многопоточности (с классом Future)
+    private static int findMinimumMultiThreaded(int[] array) throws ExecutionException, InterruptedException {
+        ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        List<Future<Integer>> futures = new ArrayList<>();
+
+        for (int i = 0; i < ARRAY_SIZE; i++) {
+            final int index = i;
+            futures.add(executorService.submit(() -> {
+                sleepOneMillisecond();
+                return array[index];
+            }));
+        }
+
+        int min = Integer.MAX_VALUE;
+        for (Future<Integer> future : futures) {
+            int value = future.get();
+            if (value < min) {
+                min = value;
+            }
+        }
+
+        executorService.shutdown();
+
+        return min;
     }
-}
 
-class ArraySum extends RecursiveTask<Integer> {
-    int[] array;
-    int start, end;
 
-    public ArraySum(int[] array, int start, int end) {
-        this.array = array;
-        this.start = start;
-        this.end = end;
+    // Поиск с использованием ForkJoin
+    private static int findMinimumForkJoin(int[] array) {
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
+        MinimumFinder minimumFinder = new MinimumFinder(array, 0, ARRAY_SIZE - 1);
+        return forkJoinPool.invoke(minimumFinder);
     }
 
-    @Override
-    protected Integer compute() {
-        if (end - start <= 1) {
-            return array[start];
-        } else {
+    // Функция для задержки
+    private static void sleepOneMillisecond() {
+        try {
+            Thread.sleep(1);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static long getMemoryUsage() {
+        Runtime runtime = Runtime.getRuntime();
+        return runtime.totalMemory() - runtime.freeMemory();
+    }
+
+    private static class MinimumFinder extends RecursiveTask<Integer> {
+        private final int[] array;
+        private final int start;
+        private final int end;
+
+        public MinimumFinder(int[] array, int start, int end) {
+            this.array = array;
+            this.start = start;
+            this.end = end;
+        }
+
+        @Override
+        protected Integer compute() {
+            if (end - start <= 1) {
+                return Math.min(array[start], array[end]);
+            }
+
             int mid = (start + end) / 2;
 
-            ArraySum left = new ArraySum(array, start, mid);
-            ArraySum right = new ArraySum(array, mid, end);
+            MinimumFinder leftFinder = new MinimumFinder(array, start, mid);
+            MinimumFinder rightFinder = new MinimumFinder(array, mid + 1, end);
 
-            left.fork();
-            right.fork();
+            leftFinder.fork();
+            int rightMin = rightFinder.compute();
+            int leftMin = leftFinder.join();
 
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            return left.join() + right.join();
+            return Math.min(leftMin, rightMin);
         }
     }
 }
